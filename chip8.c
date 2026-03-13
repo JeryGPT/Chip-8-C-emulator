@@ -71,7 +71,18 @@ void chip8_init(Chip8 *chip) {
   chip->I = 0;
   chip->sp = 0;
   memcpy(&chip->memory[0x050], fontset, sizeof(fontset));
-  printf("[+] Fontset loaded to mSSemory\n");  
+  printf("[+] Fontset loaded to memory\n");  
+}
+
+unsigned short get_opcode(Chip8 *chip) {
+  unsigned short opcode = (chip->memory[chip->pc] << 8) | chip->memory[chip->pc+1]; // opcode sa z 2 bajtow, a tablica jest 1 bajtowa. Dlatego pobieram
+  // opcode to 16bitow (czyli unsigned short). Bity 15-12 -> ROzkaz 11-8 Parametr 1 7-4 Parametr 2 
+  chip->pc += 2;
+  return opcode;
+}
+
+int start_chip8(Chip8 *chip8) {
+  return 0
 }
 
 int main() {
