@@ -161,7 +161,7 @@ void run_opcode(Chip8* chip) {
         chip->V[X] = (sum & 0xFF); // ucinam wszystkie bity po 8, nie chce overflowa 
       }
       else if (N == 0x5) {
-        chip->V[0xF] = (chip->V[X] >= chip->V[Y]) ? 1 : 0;
+        chip->V[0xF] = (chip->V[X] > chip->V[Y]) ? 1 : 0;
         chip->V[X] = chip->V[X] - chip->V[Y];
       }
       else if (N == 0x6) {
@@ -199,7 +199,7 @@ void run_opcode(Chip8* chip) {
 int start_chip8(Chip8 *chip, int rom_size) {
   printf("Start\n");
 
-    while (1){
+    while (chip->pc < rom_size + 0x200){
       run_opcode(chip);
     }
   return 0;
