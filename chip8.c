@@ -61,7 +61,7 @@ int load_rom(Chip8* chip, const char* rom_name) {
   fclose(file_ptr);
 
   free(file_path);
-  return 0;
+  return file_size;
 }
 
 void chip8_init(Chip8 *chip) {
@@ -77,23 +77,48 @@ void chip8_init(Chip8 *chip) {
 unsigned short get_opcode(Chip8 *chip) {
   unsigned short opcode = (chip->memory[chip->pc] << 8) | chip->memory[chip->pc+1]; // opcode sa z 2 bajtow, a tablica jest 1 bajtowa. Dlatego pobieram
   // opcode to 16bitow (czyli unsigned short). Bity 15-12 -> ROzkaz 11-8 Parametr 1 7-4 Parametr 2 
+
   chip->pc += 2;
+
+
   return opcode;
 }
 
-int start_chip8(Chip8 *chip8) {
-  return 0
+void run_opcode(Chip8* chip) {
+  unsigned short opcode = get_opcode(chip);
+  unsigned short T = opcode >> 12;
+  switch (T){
+    case 0x0:
+    
+      break;
+    default:
+      printf("I DONT HAVE IT 0x%x\n", T);
+
+  }
 }
+
+int start_chip8(Chip8 *chip, int rom_size) {
+  printf("Start\n");
+
+    while (chip->pc < rom_size + 0x200){
+      run_opcode(chip);
+    }
+  return 0;
+};
 
 int main() {
   char rom_name[] = "Chip8Picture.ch8";
   Chip8 chip;
   chip8_init(&chip);
-  if (load_rom(&chip, rom_name) != 0) {
+  int rom_size = load_rom(&chip, rom_name);
+  if (rom_size <= 0) {
     printf("[-] Failed to load the ROM\n");
     return -1;
   }else{
     printf("[+] ROM loaded to the memory\n");
-  }
+    start_chip8(&chip, rom_size);
+
+  };
+
   return 0;
 }
