@@ -87,12 +87,102 @@ unsigned short get_opcode(Chip8 *chip) {
 void run_opcode(Chip8* chip) {
   unsigned short opcode = get_opcode(chip);
   unsigned short T = opcode >> 12;
+  unsigned short X = (opcode & 0x0F00) >> 8; // usuwa wszyskto poza 2 segment z ciagu 4 znakow. Jest TXYN i bierze tylko 2 - 0X00, potem jest przesuniete o 8 bitow wiec zostaje 0X czyli to co chce
+  unsigned short Y = (opcode & 0x00F0) >> 4;
+  unsigned short N = (opcode & 0x0000F);
+  unsigned short NN = (opcode & 0x00FF);
+  unsigned short NNN = (opcode & 0x0FFF);
   switch (T){
     case 0x0:
-    
+      if (NN == 0xE0) { // CLS
+        system("cls");
+      }else if (NN == 0xEE) { // RET
+        chip->pc = chip->stack[chip->sp];
+        chip->sp -= 1;
+      }
+      break;
+    case 0x1:
+      chip->pc = NNN;
+      break;
+    case 0x2:
+      chip->sp++;
+      chip->stack[chip->sp] = chip->pc;
+      chip->pc = NNN;
+      break;
+    case 0x3:
+      if (chip->V[X] == NN) {
+        chip->pc += 2;
+      }
+      break;
+    case 0x4:
+      if (chip->V[X] != NN) {
+        chip->pc += 2;
+      }
+      break;
+    case 0x5: 
+      if (chip->V[X] == chip->V[Y]){
+        chip->pc += 2;
+      }
+      break;
+    case 0x6:
+      chip->V[X] = NN;
+      break;
+    case 0x7:
+      chip->V[X] = chip->V[X] + NN;
+      break;
+    case 0x8:
+      if (N == 0x0) {
+        chip->V[X] = chip->V[Y];
+      }
+      else if (N == 0x1) {
+        chip->V[X] = chip->V[X] | chip->V[Y];
+      }
+      else if (N == 0x2) {
+        chip->V[X] = chip->V[X] & chip->V[Y];
+      }
+      else if (N == 0x3) {
+        chip->V[X] = chip->V[X] ^ chip->V[Y];
+      }
+      else if (N == 0x4) {
+        int sum = chip->V[X] + chip->V[Y];
+        if (sum > 255) {
+          chip->V[0xF] = 1;
+        }else{
+          chip->V[0xF] = 0;
+        }
+        chip->V[X] = (sum & 0xFF); // ucinam wszystkie bity po 8, nie chce overflowa 
+      }
+      else if (N == 0x5) {
+        chip->V[0xF] = (chip->V[X] > chip->V[Y]) ? 0 : 1;
+        chip->V[X] = chip->V[X] - chip->V[Y];
+      }
+      else if (N == 0x6) {
+        chip->V[0xF] = (chip->V[X] & 1) ? 1 : 0;
+        chip->V[X] = chip->V[X] >> 1; // to samo co dzielenie przez 2 as far as i know
+      }
+      else if (N == 0x7) {
+        chip->V[0xF] = (chip->V[Y] > chip->V[X]) ? 1 : 0;
+        chip->V[X] = chip->V[Y] - chip->V[X];
+      }
+      else if (N == 0xE) {
+        chip->V[0xF] = ((chip->V[X] & 0x80) == 0x80) ? 1 : 0;
+        chip->V[X] <<= 1;
+      }
+     
+      break;
+    case 0x9:
+      if (chip->V[X] != chip->V[Y]){
+        chip->pc += 2;
+      }
+
+    case 0xA:
+      chip->I = NNN;
+      break;
+    case 0xB:
+      chip->pc = NNN + chip->V[0];
       break;
     default:
-      printf("I DONT HAVE IT 0x%x\n", T);
+      printf("I DONT HAVE IT 0x%X 0x%X\n", opcode, X);
 
   }
 }
