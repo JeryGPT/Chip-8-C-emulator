@@ -1,12 +1,12 @@
 #include<stdlib.h>
 #include<stdio.h>
+#include<stdint.h>
 #include<string.h>
+#include<time.h>
 
-
-
-unsigned char fontset[80] =
+unsigned char fontset[80] = 
 {
-	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+	0xF0, 0x90, 0x90, 0x9b, 0xF0, // 0
 	0x20, 0x60, 0x20, 0x20, 0x70, // 1
 	0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
 	0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
@@ -70,6 +70,10 @@ int load_rom(Chip8* chip, const char* rom_name) {
   free(file_path);
   return file_size;
 }
+
+int get_random_number() {
+  return rand() % 256;
+};
 
 void chip8_init(Chip8 *chip) {
   memset(chip, 0, sizeof(Chip8));
@@ -190,6 +194,19 @@ void run_opcode(Chip8* chip) {
     case 0xB:
       chip->pc = NNN + chip->V[0];
       break;
+    case 0xC:
+      chip->V[X] = get_random_number() & chip->V[X];
+      break;
+    case 0xD:
+      uint8_t sprite_data[15]; 
+      uint8_t x_position = chip->V[X];
+      uint8_t y_position = chip->V[Y];
+      int start_index = x_position * y_position;
+       for (int i = 0; i < N; i++) { // kopiowanie N bajtow do sprite_data
+          sprite_data[i] = chip->memory[chip->I + i];
+      }
+
+      break;
     default:
       printf("I DONT HAVE IT 0x%X 0x%X\n", opcode, X);
 
@@ -206,6 +223,7 @@ int start_chip8(Chip8 *chip, int rom_size) {
 };
 
 int main() {
+  srand(time(NULL)); 
   char rom_name[] = "Chip8Picture.ch8";
   Chip8 chip;
   chip8_init(&chip);
