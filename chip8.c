@@ -205,8 +205,22 @@ void run_opcode(Chip8* chip) {
        for (int i = 0; i < N; i++) { // kopiowanie N bajtow do sprite_data
           sprite_data[i] = chip->memory[chip->I + i];
       }
-
       break;
+    case 0xE:
+      switch (NN) {
+        case 0x9E:
+          int key_down = 1; // Jak przycisk z chip->V[X] jest nacisniety 
+          if (key_down) {
+            chip->pc+=2;
+          }
+          break;
+        case 0xA1:
+          int key_down = 1; // Jak przycisk z chip->V[X] jest NIE nacisniety 
+          if (key_down) {
+            chip->pc+=2;
+          }
+          break;
+      };
     default:
       printf("I DONT HAVE IT 0x%X 0x%X\n", opcode, X);
 
