@@ -3,6 +3,7 @@
 #include<stdint.h>
 #include<string.h>
 #include<time.h>
+#include<windows.h>
 
 unsigned char fontset[80] = 
 {
@@ -95,6 +96,34 @@ unsigned short get_opcode(Chip8 *chip) {
   return opcode;
 }
 
+void printBinary(int num) {
+    for (int i = sizeof(int) - 1; i >= 0; i--) {
+        printf("%d", (num >> i) & 1);
+    }
+    printf("\n");
+}
+
+void gotoxy(int x,int y)    
+{
+  printf("%c[%d;%df",0x1B,y,x);
+} // https://stackoverflow.com/questions/54250401/how-to-control-a-cursor-position-in-c-console-application
+
+void display_screen(char* screen) {
+  gotoxy(1, 1);
+
+  for (int y = 0; y < 32; y++){
+    for (int x = 0; x < 64; x ++) {
+      if (screen[x + y * 64] == 1)
+        printf("#");
+      else
+        printf(" ");
+    }
+    printf("\n");
+  }
+
+
+}
+
 void run_opcode(Chip8* chip) {
   unsigned short opcode = get_opcode(chip);
   unsigned short T = opcode >> 12;
@@ -169,7 +198,7 @@ void run_opcode(Chip8* chip) {
         chip->V[X] = chip->V[X] - chip->V[Y];
       }
       else if (N == 0x6) {
-        chip->V[0xF] = (chip->V[X] & 1) ? 1 : 0;
+        chip->V[0xF] = (chip->V[X] & 1);
         chip->V[X] = chip->V[X] >> 1; // to samo co dzielenie przez 2 as far as i know
       }
       else if (N == 0x7) {
@@ -195,50 +224,140 @@ void run_opcode(Chip8* chip) {
       chip->pc = NNN + chip->V[0];
       break;
     case 0xC:
-      chip->V[X] = get_random_number() & chip->V[X];
+      chip->V[X] = get_random_number() & NN;
       break;
-    case 0xD:
+    case 0xD : {
       uint8_t sprite_data[15]; 
-      uint8_t x_position = chip->V[X];
-      uint8_t y_position = chip->V[Y];
-      int start_index = x_position * y_position;
-       for (int i = 0; i < N; i++) { // kopiowanie N bajtow do sprite_data
-          sprite_data[i] = chip->memory[chip->I + i];
+      uint8_t x_position = chip->V[X] % 64;
+      uint8_t y_position = chip->V[Y] % 32;
+      chip->V[0xF] = 0;
+      for (int y = 0; y < N; y++) { // kopiowanie N bajtow do sprite_data
+          sprite_data[y] = chip->memory[chip->I + y]; // I = adres sprite'a
+          for (int bit = 0; bit < 8; bit++) {
+            if ((sprite_data[y] & (128 >> bit)) > 0) { // 128 = 10000000 czyli tworze maskę ośmiobitową której wartości przesuwam o bit ktory chce uzyskac, dzieki temu z operacji AND wiem czy bit ktory mnie obchodzi jest wlaczony
+              if ((x_position + bit) < 64 && (y_position + y) < 32) {
+                int index =(x_position + bit) + ((y_position + y) * 64) ;
+                if (chip->gfx[index] == 1)
+                {
+                  chip->V[0xF] = 1;
+                }
+                chip->gfx[index] ^= 1;
+              }
+            }
+          }
       }
+      display_screen(&chip->gfx[0]);
       break;
+    }
     case 0xE:
       switch (NN) {
         case 0x9E:
-          int key_down = 1; // Jak przycisk z chip->V[X] jest nacisniety 
-          if (key_down) {
+          if (chip->key[chip->V[X]]) {
             chip->pc+=2;
           }
           break;
         case 0xA1:
-          int key_down = 1; // Jak przycisk z chip->V[X] jest NIE nacisniety 
-          if (key_down) {
+          if (!chip->key[chip->V[X]]) {
             chip->pc+=2;
           }
           break;
       };
+      break;
+    case 0xF:
+      switch (NN){
+        case 0x0A:
+          int key_pressed = -1;
+          for (int i = 0; i < 16; i++) {
+            if (chip->key[i]) {
+              key_pressed = i;
+              break;
+            }
+          }
+
+          if (key_pressed != -1) {
+            chip->V[X] = key_pressed;
+            printf("%d", key_pressed);
+          }else{
+            chip->pc -= 2;
+          }
+          break;
+        case 0x15:
+          chip->delay_timer = chip->V[X];
+          break;
+        case 0x18:
+          chip->sound_timer = chip->V[X];
+          break;
+        case 0x1E:
+          chip->I = chip-> I + chip->V[X];
+          break;
+        case 0x29:
+          chip->I = chip->V[X] * 5 + 0x50; // 0x50 -> adres czcionki w ramie
+          break;
+        case 0x33:
+          int number = chip->V[X];
+          int hundreds = number / 100;
+          int tens = (number / 10) % 10;
+          int ones = number % 10;
+          chip->memory[chip->I] = hundreds;
+          chip->memory[chip->I + 1] = tens;
+          chip->memory[chip->I + 2] = ones;
+          break;
+      }
+      break;
     default:
       printf("I DONT HAVE IT 0x%X 0x%X\n", opcode, X);
 
   }
 }
 
+void update_keys(Chip8* chip) {
+  chip->key[0x1] = (GetAsyncKeyState('1') & 0x8000) != 0; // GetAsyncKeyState zwraca 16bitowy response w short.
+  chip->key[0x2] = (GetAsyncKeyState('2') & 0x8000) != 0; // 15 bit mowi czy jest wcisniety, 1 bit mowi czy byl 
+  chip->key[0x3] = (GetAsyncKeyState('3') & 0x8000) != 0; // wcisniety od ostatniego checka
+  chip->key[0xC] = (GetAsyncKeyState('4') & 0x8000) != 0;
+    
+  chip->key[0x4] = (GetAsyncKeyState('Q') & 0x8000) != 0;
+  chip->key[0x5] = (GetAsyncKeyState('W') & 0x8000) != 0;
+  chip->key[0x6] = (GetAsyncKeyState('E') & 0x8000) != 0;
+  chip->key[0xD] = (GetAsyncKeyState('R') & 0x8000) != 0;
+
+  chip->key[0x7] = (GetAsyncKeyState('A') & 0x8000) != 0;
+  chip->key[0x8] = (GetAsyncKeyState('S') & 0x8000) != 0;
+  chip->key[0x9] = (GetAsyncKeyState('D') & 0x8000) != 0;
+  chip->key[0xE] = (GetAsyncKeyState('F') & 0x8000) != 0;
+
+  chip->key[0xA] = (GetAsyncKeyState('Z') & 0x8000) != 0;
+  chip->key[0x0] = (GetAsyncKeyState('X') & 0x8000) != 0;
+  chip->key[0xB] = (GetAsyncKeyState('C') & 0x8000) != 0;
+  chip->key[0xF] = (GetAsyncKeyState('V') & 0x8000) != 0;
+
+};
+
+
+
 int start_chip8(Chip8 *chip, int rom_size) {
   printf("Start\n");
+  int timer_divider = 0;
 
-    while (1){
+  while (1){
       run_opcode(chip);
+      update_keys(chip);
+      timer_divider++;
+
+      if (timer_divider >= 8) { // zależy od szybkości PC, można skalibrować 
+        if (chip->delay_timer > 0) chip->delay_timer--;
+        if (chip->sound_timer > 0) chip->sound_timer--;
+        timer_divider = 0;
+      }
+      
+      Sleep(2);
     }
-  return 0;
+    return 0;
 };
 
 int main() {
-  srand(time(NULL)); 
-  char rom_name[] = "Chip8Picture.ch8";
+  srand(time(NULL));
+  char rom_name[] = "RPS.ch8";
   Chip8 chip;
   chip8_init(&chip);
   int rom_size = load_rom(&chip, rom_name);
