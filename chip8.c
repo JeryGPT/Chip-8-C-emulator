@@ -136,6 +136,7 @@ void run_opcode(Chip8* chip) {
     case 0x0:
       if (NN == 0xE0) { // CLS
         system("cls");
+        memset(chip->gfx, 0, sizeof(chip->gfx));
       }else if (NN == 0xEE) { // RET
         chip->sp -= 1;
         chip->pc = chip->stack[chip->sp];
@@ -349,8 +350,7 @@ int start_chip8(Chip8 *chip, int rom_size) {
         if (chip->sound_timer > 0) chip->sound_timer--;
         timer_divider = 0;
       }
-      
-      Sleep(2);
+  
     }
     return 0;
 };
