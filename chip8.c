@@ -7,7 +7,7 @@
 
 unsigned char fontset[80] = 
 {
-	0xF0, 0x90, 0x90, 0x9b, 0xF0, // 0
+	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
 	0x20, 0x60, 0x20, 0x20, 0x70, // 1
 	0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
 	0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
@@ -34,8 +34,9 @@ typedef struct {
   unsigned short stack[16]; // stack 32b lacznie
   unsigned short sp; // pointer do stacka
   unsigned char key[16]; // lista inputow
-  unsigned char delay_timer;
-  unsigned char sound_timer;
+  unsigned char delay_timer; // 1b
+  unsigned char sound_timer; // 1b
+  unsigned char render_flag;
 } Chip8;
 
 FILE *file_ptr;
@@ -82,6 +83,7 @@ void chip8_init(Chip8 *chip) {
   chip->opcode = 0;
   chip->I = 0;
   chip->sp = 0;
+  chip->render_flag = 0;
   memcpy(&chip->memory[0x050], fontset, sizeof(fontset));
   printf("[+] Fontset loaded to memory\n");  
 }
@@ -132,11 +134,12 @@ void run_opcode(Chip8* chip) {
   unsigned short N = (opcode & 0x0000F);
   unsigned short NN = (opcode & 0x00FF);
   unsigned short NNN = (opcode & 0x0FFF);
+
   switch (T){
     case 0x0:
       if (NN == 0xE0) { // CLS
-        system("cls");
         memset(chip->gfx, 0, sizeof(chip->gfx));
+        chip->render_flag = 1;
       }else if (NN == 0xEE) { // RET
         chip->sp -= 1;
         chip->pc = chip->stack[chip->sp];
@@ -207,7 +210,7 @@ void run_opcode(Chip8* chip) {
         chip->V[X] = chip->V[Y] - chip->V[X];
       }
       else if (N == 0xE) {
-        chip->V[0xF] = ((chip->V[X] & 0x80) == 0x80) ? 1 : 0;
+        chip->V[0xF] = (chip->V[X]  >> 7) ? 1 : 0;
         chip->V[X] <<= 1;
       }
      
@@ -236,18 +239,18 @@ void run_opcode(Chip8* chip) {
           sprite_data[y] = chip->memory[chip->I + y]; // I = adres sprite'a
           for (int bit = 0; bit < 8; bit++) {
             if ((sprite_data[y] & (128 >> bit)) > 0) { // 128 = 10000000 czyli tworze maskę ośmiobitową której wartości przesuwam o bit ktory chce uzyskac, dzieki temu z operacji AND wiem czy bit ktory mnie obchodzi jest wlaczony
-              if ((x_position + bit) < 64 && (y_position + y) < 32) {
-                int index =(x_position + bit) + ((y_position + y) * 64) ;
+                int x = (x_position + bit) % 64;
+                int y_coord = (y_position + y) % 32;
+                int index = x + y_coord * 64;
                 if (chip->gfx[index] == 1)
                 {
                   chip->V[0xF] = 1;
                 }
                 chip->gfx[index] ^= 1;
-              }
             }
           }
       }
-      display_screen(&chip->gfx[0]);
+      chip->render_flag = 1;
       break;
     }
     case 0xE:
@@ -266,6 +269,9 @@ void run_opcode(Chip8* chip) {
       break;
     case 0xF:
       switch (NN){
+        case 0x07:
+          chip->V[X] = chip->delay_timer;
+          break;
         case 0x0A:
           int key_pressed = -1;
           for (int i = 0; i < 16; i++) {
@@ -302,6 +308,17 @@ void run_opcode(Chip8* chip) {
           chip->memory[chip->I] = hundreds;
           chip->memory[chip->I + 1] = tens;
           chip->memory[chip->I + 2] = ones;
+          break;
+        case 0x55:
+          for (int i = 0; i <= X; i ++) {
+            chip->memory[chip->I + i] = chip->V[i];
+          }
+          break;
+        case 0x65:
+          for (int i = 0; i <= X; i ++) {
+            chip->V[i] = chip->memory[chip->I + i];
+          }
+          
           break;
       }
       break;
@@ -341,18 +358,23 @@ int start_chip8(Chip8 *chip, int rom_size) {
   int timer_divider = 0;
 
   while (1){
+    for (int i = 0; i < 8; i ++) { // 480 instrukcji / sekunde 
       run_opcode(chip);
-      update_keys(chip);
-      timer_divider++;
-
-      if (timer_divider >= 8) { // zależy od szybkości PC, można skalibrować 
-        if (chip->delay_timer > 0) chip->delay_timer--;
-        if (chip->sound_timer > 0) chip->sound_timer--;
-        timer_divider = 0;
-      }
-  
     }
-    return 0;
+    update_keys(chip);
+
+    if (chip->delay_timer > 0) chip->delay_timer--;
+    if (chip->sound_timer > 0) chip->sound_timer--;
+    if (chip->render_flag) {
+      display_screen(&chip->gfx[0]);
+      chip->render_flag = 0;
+    }
+
+    Sleep(1000 / 60); 
+  
+  }
+  return 0;
+
 };
 
 int main() {
