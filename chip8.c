@@ -138,6 +138,7 @@ void run_opcode(Chip8* chip) {
   switch (T){
     case 0x0:
       if (NN == 0xE0) { // CLS
+        system("cls");
         memset(chip->gfx, 0, sizeof(chip->gfx));
         chip->render_flag = 1;
       }else if (NN == 0xEE) { // RET
@@ -358,7 +359,7 @@ int start_chip8(Chip8 *chip, int rom_size) {
   int timer_divider = 0;
 
   while (1){
-    for (int i = 0; i < 8; i ++) { // 480 instrukcji / sekunde 
+    for (int i = 0; i < 12; i ++) { // 720 opcode`ow / sekunde
       run_opcode(chip);
     }
     update_keys(chip);
@@ -379,7 +380,7 @@ int start_chip8(Chip8 *chip, int rom_size) {
 
 int main() {
   srand(time(NULL));
-  char rom_name[] = "RPS.ch8";
+  char rom_name[] = "Pong.ch8";
   Chip8 chip;
   chip8_init(&chip);
   int rom_size = load_rom(&chip, rom_name);
