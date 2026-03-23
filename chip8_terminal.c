@@ -3,7 +3,8 @@
 #include<stdint.h>
 #include<string.h>
 #include<time.h>
-#include<raylib.h>
+#include<windows.h>
+
 unsigned char fontset[80] = 
 {
 	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -110,34 +111,17 @@ void gotoxy(int x,int y)
 } // https://stackoverflow.com/questions/54250401/how-to-control-a-cursor-position-in-c-console-application
 
 void display_screen(char* screen) {
-  const int cube_size = 16;
-  const int x_grid = 64;
-  const int y_grid = 32;
-  BeginDrawing();
-    ClearBackground(RAYWHITE);
+  gotoxy(1, 1);
 
-    for (int i = 0; i <= cube_size*x_grid; i += cube_size) {
-        DrawLine(i, 0, i, cube_size*y_grid, LIGHTGRAY); // Linie pionowe
+  for (int y = 0; y < 32; y++){
+    for (int x = 0; x < 64; x ++) {
+      if (screen[x + y * 64] == 1)
+        printf("#");
+      else
+        printf(" ");
     }
-
-    for (int i = 0; i <= cube_size*y_grid; i += cube_size) {
-        DrawLine(0, i, cube_size*x_grid, i, LIGHTGRAY);
-    }
-
-    for (int pixel = 0; pixel < x_grid * y_grid; pixel++) {
-      int pixel_y = pixel / 64;
-      int pixel_x = pixel % 64;
-      if (screen[pixel]) {
-        DrawRectangle((cube_size * pixel_x), ( cube_size * pixel_y), cube_size, cube_size, MAROON);
-      }else{
-        DrawRectangle((cube_size * pixel_x), ( cube_size * pixel_y), cube_size, cube_size, LIGHTGRAY);
-      }
-
-
-    }
-
-
-  EndDrawing();
+    printf("\n");
+  }
 
 
 }
@@ -346,25 +330,25 @@ void run_opcode(Chip8* chip) {
 }
 
 void update_keys(Chip8* chip) {
-  chip->key[0x1] = IsKeyDown(KEY_ONE);
-  chip->key[0x2] = IsKeyDown(KEY_TWO);
-  chip->key[0x3] = IsKeyDown(KEY_THREE);
-  chip->key[0xC] = IsKeyDown(KEY_FOUR);
+  chip->key[0x1] = (GetAsyncKeyState('1') & 0x8000) != 0; // GetAsyncKeyState zwraca 16bitowy response w short.
+  chip->key[0x2] = (GetAsyncKeyState('2') & 0x8000) != 0; // 15 bit mowi czy jest wcisniety, 1 bit mowi czy byl 
+  chip->key[0x3] = (GetAsyncKeyState('3') & 0x8000) != 0; // wcisniety od ostatniego checka
+  chip->key[0xC] = (GetAsyncKeyState('4') & 0x8000) != 0;
     
-  chip->key[0x4] = IsKeyDown(KEY_Q);
-  chip->key[0x5] = IsKeyDown(KEY_W);
-  chip->key[0x6] = IsKeyDown(KEY_E);
-  chip->key[0xD] = IsKeyDown(KEY_R);
+  chip->key[0x4] = (GetAsyncKeyState('Q') & 0x8000) != 0;
+  chip->key[0x5] = (GetAsyncKeyState('W') & 0x8000) != 0;
+  chip->key[0x6] = (GetAsyncKeyState('E') & 0x8000) != 0;
+  chip->key[0xD] = (GetAsyncKeyState('R') & 0x8000) != 0;
 
-  chip->key[0x7] = IsKeyDown(KEY_A);
-  chip->key[0x8] = IsKeyDown(KEY_S);
-  chip->key[0x9] = IsKeyDown(KEY_D);
-  chip->key[0xE] = IsKeyDown(KEY_F);
+  chip->key[0x7] = (GetAsyncKeyState('A') & 0x8000) != 0;
+  chip->key[0x8] = (GetAsyncKeyState('S') & 0x8000) != 0;
+  chip->key[0x9] = (GetAsyncKeyState('D') & 0x8000) != 0;
+  chip->key[0xE] = (GetAsyncKeyState('F') & 0x8000) != 0;
 
-  chip->key[0xA] = IsKeyDown(KEY_Z);
-  chip->key[0x0] = IsKeyDown(KEY_X);
-  chip->key[0xB] = IsKeyDown(KEY_C);
-  chip->key[0xF] = IsKeyDown(KEY_V);
+  chip->key[0xA] = (GetAsyncKeyState('Z') & 0x8000) != 0;
+  chip->key[0x0] = (GetAsyncKeyState('X') & 0x8000) != 0;
+  chip->key[0xB] = (GetAsyncKeyState('C') & 0x8000) != 0;
+  chip->key[0xF] = (GetAsyncKeyState('V') & 0x8000) != 0;
 
 };
 
@@ -372,10 +356,8 @@ void update_keys(Chip8* chip) {
 
 int start_chip8(Chip8 *chip, int rom_size) {
   printf("Start\n");
-  InitWindow(64*16, 32*16, "Chip8 Emulator");
-  SetTargetFPS(60);
-
   int timer_divider = 0;
+
   while (1){
     for (int i = 0; i < 12; i ++) { // 720 opcode`ow / sekunde
       run_opcode(chip);
@@ -388,7 +370,9 @@ int start_chip8(Chip8 *chip, int rom_size) {
       display_screen(&chip->gfx[0]);
       chip->render_flag = 0;
     }
-    _sleep(1000/ 60);
+
+    Sleep(1000 / 60); 
+  
   }
   return 0;
 
@@ -396,7 +380,7 @@ int start_chip8(Chip8 *chip, int rom_size) {
 
 int main() {
   srand(time(NULL));
-  char rom_name[] = "RPS.ch8";
+  char rom_name[] = "invaders.ch8";
   Chip8 chip;
   chip8_init(&chip);
   int rom_size = load_rom(&chip, rom_name);
